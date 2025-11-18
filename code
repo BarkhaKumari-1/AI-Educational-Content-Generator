@@ -1,0 +1,356 @@
+import React, { useState } from 'react';
+import { BookOpen, Video, FileText, Loader2, Download, Copy, Check } from 'lucide-react';
+
+export default function AIContentGenerator() {
+  const [topic, setTopic] = useState('');
+  const [duration, setDuration] = useState('3-5');
+  const [audience, setAudience] = useState('general');
+  const [loading, setLoading] = useState(false);
+  const [content, setContent] = useState(null);
+  const [copiedScript, setCopiedScript] = useState(false);
+  const [copiedArticle, setCopiedArticle] = useState(false);
+  const [copiedSocial, setCopiedSocial] = useState(false);
+
+  const generateContent = async () => {
+    if (!topic.trim()) {
+      alert('Please enter a topic');
+      return;
+    }
+
+    setLoading(true);
+    setContent(null);
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          messages: [
+            {
+              role: 'user',
+              content: `You are an expert educational content creator. Create comprehensive content for the topic: "${topic}"
+
+Target audience: ${audience}
+Video duration: ${duration} minutes
+
+Please respond ONLY with valid JSON (no markdown, no preamble, no backticks) in this exact format:
+{
+  "videoScript": {
+    "title": "engaging title",
+    "hook": "attention-grabbing opening (15-20 seconds)",
+    "introduction": "context and what viewers will learn (30 seconds)",
+    "mainContent": [
+      {"section": "section title", "content": "detailed explanation", "visuals": "suggested visuals"},
+      {"section": "section title", "content": "detailed explanation", "visuals": "suggested visuals"}
+    ],
+    "conclusion": "summary and call-to-action (30 seconds)"
+  },
+  "article": {
+    "title": "SEO-friendly title",
+    "introduction": "engaging opening paragraph",
+    "body": "detailed article content with paragraphs",
+    "conclusion": "wrap-up with key takeaways"
+  },
+  "socialPosts": {
+    "instagram": "caption with hashtags (max 150 chars)",
+    "twitter": "tweet (max 280 chars)",
+    "linkedin": "professional post (max 200 chars)",
+    "facebook": "engaging post (max 150 chars)"
+  }
+}
+
+Make the content educational, engaging, and actionable. Ensure all JSON is properly formatted.`
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        throw new Error(errorData.error?.message || 'API request failed');
+      }
+
+      const data = await response.json();
+      console.log('API Response:', data);
+
+      const textContent = data.content
+        .filter(item => item.type === 'text')
+        .map(item => item.text)
+        .join('');
+
+      console.log('Text Content:', textContent);
+
+      // Clean and parse JSON
+      const cleanJson = textContent.replace(/```json|```/g, '').trim();
+      const parsedContent = JSON.parse(cleanJson);
+      
+      setContent(parsedContent);
+    } catch (error) {
+      console.error('Error details:', error);
+      alert(`Failed to generate content: ${error.message}. Please check the browser console for more details.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text, setter) => {
+    navigator.clipboard.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
+  };
+
+  const downloadScript = () => {
+    if (!content) return;
+    
+    const scriptText = `
+VIDEO SCRIPT: ${content.videoScript.title}
+
+HOOK (15-20 seconds):
+${content.videoScript.hook}
+
+INTRODUCTION (30 seconds):
+${content.videoScript.introduction}
+
+MAIN CONTENT:
+${content.videoScript.mainContent.map((section, i) => `
+${i + 1}. ${section.section}
+${section.content}
+[VISUALS: ${section.visuals}]
+`).join('\n')}
+
+CONCLUSION (30 seconds):
+${content.videoScript.conclusion}
+    `.trim();
+
+    const blob = new Blob([scriptText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${topic.replace(/\s+/g, '_')}_script.txt`;
+    a.click();
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <BookOpen className="w-10 h-10 text-indigo-600" />
+            <h1 className="text-4xl font-bold text-gray-800">AI Educational Content Generator</h1>
+          </div>
+          <p className="text-gray-600 text-lg">
+            Generate professional video scripts, articles, and social media posts instantly - no technical skills required!
+          </p>
+        </div>
+
+        {/* Input Form */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Create Your Content</h2>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Topic or Subject
+              </label>
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="e.g., Introduction to Photosynthesis, Basic Python Programming, World War II Overview"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-lg"
+              />
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Video Duration
+                </label>
+                <select
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-lg"
+                >
+                  <option value="1-2">1-2 minutes (Quick tip)</option>
+                  <option value="3-5">3-5 minutes (Standard)</option>
+                  <option value="5-10">5-10 minutes (In-depth)</option>
+                  <option value="10-15">10-15 minutes (Detailed tutorial)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Target Audience
+                </label>
+                <select
+                  value={audience}
+                  onChange={(e) => setAudience(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-lg"
+                >
+                  <option value="children">Children (ages 6-12)</option>
+                  <option value="teenagers">Teenagers (ages 13-18)</option>
+                  <option value="general">General Adult Audience</option>
+                  <option value="professionals">Professionals</option>
+                  <option value="beginners">Complete Beginners</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={generateContent}
+              disabled={loading}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  Generating Your Content...
+                </>
+              ) : (
+                <>
+                  <Video className="w-6 h-6" />
+                  Generate Content
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Results */}
+        {content && (
+          <div className="space-y-6">
+            {/* Video Script */}
+            <div className="bg-white rounded-2xl shadow-xl p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Video className="w-8 h-8 text-indigo-600" />
+                  <h2 className="text-2xl font-bold text-gray-800">Video Script</h2>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => copyToClipboard(
+                      `${content.videoScript.title}\n\n${content.videoScript.hook}\n\n${content.videoScript.introduction}\n\n${content.videoScript.mainContent.map(s => s.content).join('\n\n')}\n\n${content.videoScript.conclusion}`,
+                      setCopiedScript
+                    )}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                  >
+                    {copiedScript ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5" />}
+                    {copiedScript ? 'Copied!' : 'Copy'}
+                  </button>
+                  <button
+                    onClick={downloadScript}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-indigo-600 mb-2">{content.videoScript.title}</h3>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-2">🎬 HOOK (15-20 seconds)</h4>
+                  <p className="text-gray-700 bg-yellow-50 p-4 rounded-lg">{content.videoScript.hook}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-2">📝 INTRODUCTION (30 seconds)</h4>
+                  <p className="text-gray-700 bg-blue-50 p-4 rounded-lg">{content.videoScript.introduction}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-3">📚 MAIN CONTENT</h4>
+                  {content.videoScript.mainContent.map((section, index) => (
+                    <div key={index} className="mb-4 bg-gray-50 p-4 rounded-lg">
+                      <h5 className="font-bold text-indigo-600 mb-2">{index + 1}. {section.section}</h5>
+                      <p className="text-gray-700 mb-3">{section.content}</p>
+                      <p className="text-sm text-gray-600 italic">💡 Suggested visuals: {section.visuals}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-2">🎯 CONCLUSION (30 seconds)</h4>
+                  <p className="text-gray-700 bg-green-50 p-4 rounded-lg">{content.videoScript.conclusion}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Article */}
+            <div className="bg-white rounded-2xl shadow-xl p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-8 h-8 text-indigo-600" />
+                  <h2 className="text-2xl font-bold text-gray-800">Article / Blog Post</h2>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(
+                    `${content.article.title}\n\n${content.article.introduction}\n\n${content.article.body}\n\n${content.article.conclusion}`,
+                    setCopiedArticle
+                  )}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                >
+                  {copiedArticle ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5" />}
+                  {copiedArticle ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+
+              <div className="prose max-w-none">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">{content.article.title}</h3>
+                <p className="text-gray-700 mb-4 text-lg leading-relaxed">{content.article.introduction}</p>
+                <div className="text-gray-700 mb-4 text-lg leading-relaxed whitespace-pre-line">{content.article.body}</div>
+                <p className="text-gray-700 text-lg leading-relaxed">{content.article.conclusion}</p>
+              </div>
+            </div>
+
+            {/* Social Media Posts */}
+            <div className="bg-white rounded-2xl shadow-xl p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">📱 Social Media Posts</h2>
+                <button
+                  onClick={() => copyToClipboard(
+                    `Instagram: ${content.socialPosts.instagram}\n\nTwitter: ${content.socialPosts.twitter}\n\nLinkedIn: ${content.socialPosts.linkedin}\n\nFacebook: ${content.socialPosts.facebook}`,
+                    setCopiedSocial
+                  )}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                >
+                  {copiedSocial ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5" />}
+                  {copiedSocial ? 'Copied All!' : 'Copy All'}
+                </button>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-purple-700 mb-2">Instagram</h4>
+                  <p className="text-gray-700">{content.socialPosts.instagram}</p>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-blue-700 mb-2">Twitter</h4>
+                  <p className="text-gray-700">{content.socialPosts.twitter}</p>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-blue-800 mb-2">LinkedIn</h4>
+                  <p className="text-gray-700">{content.socialPosts.linkedin}</p>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
+                  <h4 className="font-bold text-blue-700 mb-2">Facebook</h4>
+                  <p className="text-gray-700">{content.socialPosts.facebook}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
